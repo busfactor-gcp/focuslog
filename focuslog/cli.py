@@ -8,6 +8,12 @@ from pathlib import Path
 from .storage import load_tasks, save_tasks
 
 
+
+def next_id(tasks: list[dict]) -> int:
+    return max((task["id"] for task in tasks), default=0) + 1
+
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="focuslog", description="A small local task tracker")
     parser.add_argument("--data", type=Path, default=Path(os.environ.get("FOCUSLOG_FILE", Path.home() / ".focuslog" / "tasks.json")), help="JSON task file")
@@ -15,6 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("init", help="create an empty task file")
     cmd.add_argument("--force", action="store_true", help="replace an existing task file")
     cmd.set_defaults(handler=init_tasks)
+    cmd = sub.add_parser("add", help="add a task")
+    cmd.add_argument("title", help="task title")
+    cmd.set_defaults(handler=add_task)
+    cmd = sub.add_parser("list", help="show tasks")
+    cmd.set_defaults(handler=list_tasks)
     return parser
 
 
@@ -23,6 +34,27 @@ def init_tasks(args: argparse.Namespace) -> int:
         raise ValueError(f"{args.data} already exists; use --force to replace it")
     save_tasks(args.data, [])
     print(f"Initialized {args.data}")
+    return 0
+
+def add_task(args: argparse.Namespace) -> int:
+    title = args.title.strip()
+    if not title:
+        raise ValueError("title cannot be empty")
+    tasks = load_tasks(args.data)
+    task = {"id": next_id(tasks), "title": title, "done": False}
+    tasks.append(task)
+    save_tasks(args.data, tasks)
+    print(f"Added #{task['id']}: {title}")
+    return 0
+
+def list_tasks(args: argparse.Namespace) -> int:
+    tasks = load_tasks(args.data)
+    if not tasks:
+        print("No tasks found.")
+        return 0
+    for task in tasks:
+        state = "x" if task["done"] else " "
+        print(f"{task['id']:>3} [{state}] {task['title']}")
     return 0
 
 
