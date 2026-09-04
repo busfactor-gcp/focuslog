@@ -14,6 +14,14 @@ def next_id(tasks: list[dict]) -> int:
 
 
 
+def find_task(tasks: list[dict], task_id: int) -> dict:
+    for task in tasks:
+        if task["id"] == task_id:
+            return task
+    raise ValueError(f"task #{task_id} not found")
+
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="focuslog", description="A small local task tracker")
     parser.add_argument("--data", type=Path, default=Path(os.environ.get("FOCUSLOG_FILE", Path.home() / ".focuslog" / "tasks.json")), help="JSON task file")
@@ -26,6 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
     cmd.set_defaults(handler=add_task)
     cmd = sub.add_parser("list", help="show tasks")
     cmd.set_defaults(handler=list_tasks)
+    cmd = sub.add_parser("done", help="mark a task complete")
+    cmd.add_argument("id", type=int)
+    cmd.set_defaults(handler=complete_task)
     return parser
 
 
@@ -55,6 +66,16 @@ def list_tasks(args: argparse.Namespace) -> int:
     for task in tasks:
         state = "x" if task["done"] else " "
         print(f"{task['id']:>3} [{state}] {task['title']}")
+    return 0
+
+def complete_task(args: argparse.Namespace) -> int:
+    tasks = load_tasks(args.data)
+    task = find_task(tasks, args.id)
+    if task["done"]:
+        raise ValueError(f"task #{args.id} is already complete")
+    task["done"] = True
+    save_tasks(args.data, tasks)
+    print(f"Completed #{args.id}")
     return 0
 
 
