@@ -37,6 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("done", help="mark a task complete")
     cmd.add_argument("id", type=int)
     cmd.set_defaults(handler=complete_task)
+    cmd = sub.add_parser("remove", help="remove a task")
+    cmd.add_argument("id", type=int)
+    cmd.set_defaults(handler=remove_task)
     return parser
 
 
@@ -76,6 +79,14 @@ def complete_task(args: argparse.Namespace) -> int:
     task["done"] = True
     save_tasks(args.data, tasks)
     print(f"Completed #{args.id}")
+    return 0
+
+def remove_task(args: argparse.Namespace) -> int:
+    tasks = load_tasks(args.data)
+    task = find_task(tasks, args.id)
+    tasks.remove(task)
+    save_tasks(args.data, tasks)
+    print(f"Removed #{args.id}")
     return 0
 
 
