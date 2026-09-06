@@ -31,8 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
     cmd.set_defaults(handler=init_tasks)
     cmd = sub.add_parser("add", help="add a task")
     cmd.add_argument("title", help="task title")
+    cmd.add_argument("--priority", choices=("low", "normal", "high"), default="normal")
     cmd.set_defaults(handler=add_task)
     cmd = sub.add_parser("list", help="show tasks")
+    cmd.add_argument("--priority", choices=("low", "normal", "high"))
+    cmd.add_argument("--sort-priority", action="store_true", help="show high priority first")
     cmd.set_defaults(handler=list_tasks)
     cmd = sub.add_parser("done", help="mark a task complete")
     cmd.add_argument("id", type=int)
@@ -55,7 +58,7 @@ def add_task(args: argparse.Namespace) -> int:
     if not title:
         raise ValueError("title cannot be empty")
     tasks = load_tasks(args.data)
-    task = {"id": next_id(tasks), "title": title, "done": False}
+    task = {"id": next_id(tasks), "title": title, "done": False, "priority": args.priority}
     tasks.append(task)
     save_tasks(args.data, tasks)
     print(f"Added #{task['id']}: {title}")
@@ -63,12 +66,17 @@ def add_task(args: argparse.Namespace) -> int:
 
 def list_tasks(args: argparse.Namespace) -> int:
     tasks = load_tasks(args.data)
+    if args.priority:
+        tasks = [task for task in tasks if task.get("priority", "normal") == args.priority]
+    if args.sort_priority:
+        rank = {"high": 0, "normal": 1, "low": 2}
+        tasks.sort(key=lambda task: (rank[task.get("priority", "normal")], task["id"]))
     if not tasks:
         print("No tasks found.")
         return 0
     for task in tasks:
         state = "x" if task["done"] else " "
-        print(f"{task['id']:>3} [{state}] {task['title']}")
+        print(f"{task['id']:>3} [{state}] {task.get('priority', 'normal'):<6} {task['title']}")
     return 0
 
 def complete_task(args: argparse.Namespace) -> int:
