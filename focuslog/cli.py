@@ -4,6 +4,7 @@
 import argparse
 import os
 import sys
+from datetime import date
 from pathlib import Path
 from .storage import load_tasks, save_tasks
 
@@ -34,6 +35,14 @@ def normalize_tags(values: list[str]) -> list[str]:
 
 
 
+def parse_due(value: str) -> str:
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise ValueError("due date must be YYYY-MM-DD") from exc
+
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="focuslog", description="A small local task tracker")
     parser.add_argument("--data", type=Path, default=Path(os.environ.get("FOCUSLOG_FILE", Path.home() / ".focuslog" / "tasks.json")), help="JSON task file")
@@ -45,11 +54,13 @@ def build_parser() -> argparse.ArgumentParser:
     cmd.add_argument("title", help="task title")
     cmd.add_argument("--priority", choices=("low", "normal", "high"), default="normal")
     cmd.add_argument("--tag", action="append", default=[], help="repeat to add multiple tags")
+    cmd.add_argument("--due", help="due date as YYYY-MM-DD")
     cmd.set_defaults(handler=add_task)
     cmd = sub.add_parser("list", help="show tasks")
     cmd.add_argument("--priority", choices=("low", "normal", "high"))
     cmd.add_argument("--sort-priority", action="store_true", help="show high priority first")
     cmd.add_argument("--tag", help="show tasks with this tag")
+    cmd.add_argument("--due-before", help="show tasks due before YYYY-MM-DD")
     cmd.set_defaults(handler=list_tasks)
     cmd = sub.add_parser("done", help="mark a task complete")
     cmd.add_argument("id", type=int)
@@ -72,8 +83,9 @@ def add_task(args: argparse.Namespace) -> int:
     if not title:
         raise ValueError("title cannot be empty")
     tags = normalize_tags(args.tag)
+    due = parse_due(args.due) if args.due else None
     tasks = load_tasks(args.data)
-    task = {"id": next_id(tasks), "title": title, "done": False, "priority": args.priority, "tags": tags}
+    task = {"id": next_id(tasks), "title": title, "done": False, "priority": args.priority, "tags": tags, "due": due}
     tasks.append(task)
     save_tasks(args.data, tasks)
     print(f"Added #{task['id']}: {title}")
@@ -85,6 +97,9 @@ def list_tasks(args: argparse.Namespace) -> int:
         tasks = [task for task in tasks if task.get("priority", "normal") == args.priority]
     if args.tag:
         tasks = [task for task in tasks if args.tag.lower() in task.get("tags", [])]
+    if args.due_before:
+        cutoff = parse_due(args.due_before)
+        tasks = [task for task in tasks if task.get("due") and task["due"] < cutoff]
     if args.sort_priority:
         rank = {"high": 0, "normal": 1, "low": 2}
         tasks.sort(key=lambda task: (rank[task.get("priority", "normal")], task["id"]))
@@ -94,7 +109,8 @@ def list_tasks(args: argparse.Namespace) -> int:
     for task in tasks:
         state = "x" if task["done"] else " "
         tags = ",".join(task.get("tags", [])) or "-"
-        print(f"{task['id']:>3} [{state}] {task.get('priority', 'normal'):<6} {tags:<16} {task['title']}")
+        due = task.get("due") or "-"
+        print(f"{task['id']:>3} [{state}] {task.get('priority', 'normal'):<6} {due:<10} {tags:<16} {task['title']}")
     return 0
 
 def complete_task(args: argparse.Namespace) -> int:
