@@ -68,6 +68,9 @@ def build_parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("remove", help="remove a task")
     cmd.add_argument("id", type=int)
     cmd.set_defaults(handler=remove_task)
+    cmd = sub.add_parser("search", help="search task titles")
+    cmd.add_argument("query")
+    cmd.set_defaults(handler=search_tasks)
     return parser
 
 
@@ -129,6 +132,19 @@ def remove_task(args: argparse.Namespace) -> int:
     tasks.remove(task)
     save_tasks(args.data, tasks)
     print(f"Removed #{args.id}")
+    return 0
+
+def search_tasks(args: argparse.Namespace) -> int:
+    query = args.query.strip().casefold()
+    if not query:
+        raise ValueError("search query cannot be empty")
+    matches = [task for task in load_tasks(args.data) if query in task["title"].casefold()]
+    if not matches:
+        print("No tasks found.")
+        return 0
+    for task in matches:
+        state = "x" if task["done"] else " "
+        print(f"{task['id']:>3} [{state}] {task['title']}")
     return 0
 
 
