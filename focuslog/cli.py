@@ -71,6 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("search", help="search task titles")
     cmd.add_argument("query")
     cmd.set_defaults(handler=search_tasks)
+    cmd = sub.add_parser("stats", help="summarize task progress")
+    cmd.set_defaults(handler=show_stats)
     return parser
 
 
@@ -145,6 +147,18 @@ def search_tasks(args: argparse.Namespace) -> int:
     for task in matches:
         state = "x" if task["done"] else " "
         print(f"{task['id']:>3} [{state}] {task['title']}")
+    return 0
+
+def show_stats(args: argparse.Namespace) -> int:
+    tasks = load_tasks(args.data)
+    total = len(tasks)
+    done = sum(task["done"] for task in tasks)
+    print(f"Total: {total}")
+    print(f"Open: {total - done}")
+    print(f"Complete: {done}")
+    for priority in ("high", "normal", "low"):
+        count = sum(not task["done"] and task.get("priority", "normal") == priority for task in tasks)
+        print(f"Open {priority}: {count}")
     return 0
 
 
