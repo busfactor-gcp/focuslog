@@ -73,6 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
     cmd.set_defaults(handler=search_tasks)
     cmd = sub.add_parser("stats", help="summarize task progress")
     cmd.set_defaults(handler=show_stats)
+    cmd = sub.add_parser("edit", help="change a task")
+    cmd.add_argument("id", type=int)
+    cmd.add_argument("--title")
+    cmd.add_argument("--priority", choices=("low", "normal", "high"))
+    due_group = cmd.add_mutually_exclusive_group()
+    due_group.add_argument("--due")
+    due_group.add_argument("--clear-due", action="store_true")
+    cmd.set_defaults(handler=edit_task)
     return parser
 
 
@@ -159,6 +167,27 @@ def show_stats(args: argparse.Namespace) -> int:
     for priority in ("high", "normal", "low"):
         count = sum(not task["done"] and task.get("priority", "normal") == priority for task in tasks)
         print(f"Open {priority}: {count}")
+    return 0
+
+def edit_task(args: argparse.Namespace) -> int:
+    if args.title is None and args.priority is None and args.due is None and not args.clear_due:
+        raise ValueError("specify at least one change")
+    title = args.title.strip() if args.title is not None else None
+    if title is not None and not title:
+        raise ValueError("title cannot be empty")
+    due = parse_due(args.due) if args.due else None
+    tasks = load_tasks(args.data)
+    task = find_task(tasks, args.id)
+    if title is not None:
+        task["title"] = title
+    if args.priority is not None:
+        task["priority"] = args.priority
+    if args.due is not None:
+        task["due"] = due
+    if args.clear_due:
+        task["due"] = None
+    save_tasks(args.data, tasks)
+    print(f"Updated #{args.id}")
     return 0
 
 
