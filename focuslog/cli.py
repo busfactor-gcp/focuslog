@@ -2,6 +2,7 @@
 
 
 import argparse
+import csv
 import os
 import sys
 from datetime import date
@@ -81,6 +82,9 @@ def build_parser() -> argparse.ArgumentParser:
     due_group.add_argument("--due")
     due_group.add_argument("--clear-due", action="store_true")
     cmd.set_defaults(handler=edit_task)
+    cmd = sub.add_parser("export", help="export tasks to CSV")
+    cmd.add_argument("path", type=Path)
+    cmd.set_defaults(handler=export_csv)
     return parser
 
 
@@ -188,6 +192,24 @@ def edit_task(args: argparse.Namespace) -> int:
         task["due"] = None
     save_tasks(args.data, tasks)
     print(f"Updated #{args.id}")
+    return 0
+
+def export_csv(args: argparse.Namespace) -> int:
+    tasks = load_tasks(args.data)
+    args.path.parent.mkdir(parents=True, exist_ok=True)
+    with args.path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=("id", "title", "done", "priority", "tags", "due"))
+        writer.writeheader()
+        for task in tasks:
+            writer.writerow({
+                "id": task["id"],
+                "title": task["title"],
+                "done": str(task["done"]).lower(),
+                "priority": task.get("priority", "normal"),
+                "tags": ",".join(task.get("tags", [])),
+                "due": task.get("due") or "",
+            })
+    print(f"Exported {len(tasks)} tasks to {args.path}")
     return 0
 
 
