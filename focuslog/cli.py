@@ -62,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     cmd.add_argument("--sort-priority", action="store_true", help="show high priority first")
     cmd.add_argument("--tag", help="show tasks with this tag")
     cmd.add_argument("--due-before", help="show tasks due before YYYY-MM-DD")
+    cmd.add_argument("--overdue", action="store_true", help="show overdue open tasks")
     cmd.set_defaults(handler=list_tasks)
     cmd = sub.add_parser("done", help="mark a task complete")
     cmd.add_argument("id", type=int)
@@ -117,6 +118,9 @@ def list_tasks(args: argparse.Namespace) -> int:
     if args.due_before:
         cutoff = parse_due(args.due_before)
         tasks = [task for task in tasks if task.get("due") and task["due"] < cutoff]
+    if args.overdue:
+        today = date.today().isoformat()
+        tasks = [task for task in tasks if not task["done"] and task.get("due") and task["due"] <= today]
     if args.sort_priority:
         rank = {"high": 0, "normal": 1, "low": 2}
         tasks.sort(key=lambda task: (rank[task.get("priority", "normal")], task["id"]))
