@@ -86,6 +86,9 @@ def build_parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("export", help="export tasks to CSV")
     cmd.add_argument("path", type=Path)
     cmd.set_defaults(handler=export_csv)
+    cmd = sub.add_parser("import", help="import tasks from CSV")
+    cmd.add_argument("path", type=Path)
+    cmd.set_defaults(handler=import_csv)
     return parser
 
 
@@ -214,6 +217,36 @@ def export_csv(args: argparse.Namespace) -> int:
                 "due": task.get("due") or "",
             })
     print(f"Exported {len(tasks)} tasks to {args.path}")
+    return 0
+
+def import_csv(args: argparse.Namespace) -> int:
+    with args.path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        required = {"title", "done", "priority", "tags", "due"}
+        if not reader.fieldnames or not required.issubset(reader.fieldnames):
+            raise ValueError("CSV must contain title, done, priority, tags, and due columns")
+        incoming = []
+        for row_number, row in enumerate(reader, start=2):
+            title = (row["title"] or "").strip()
+            if not title:
+                raise ValueError(f"row {row_number}: title cannot be empty")
+            done_text = (row["done"] or "false").strip().lower()
+            if done_text not in {"true", "false"}:
+                raise ValueError(f"row {row_number}: done must be true or false")
+            priority = (row["priority"] or "normal").strip().lower()
+            if priority not in {"low", "normal", "high"}:
+                raise ValueError(f"row {row_number}: invalid priority")
+            due = parse_due(row["due"].strip()) if row["due"] and row["due"].strip() else None
+            tags = normalize_tags((row["tags"] or "").split(",")) if row["tags"] else []
+            incoming.append({"title": title, "done": done_text == "true", "priority": priority, "tags": tags, "due": due})
+    tasks = load_tasks(args.data)
+    new_id = next_id(tasks)
+    for task in incoming:
+        task["id"] = new_id
+        new_id += 1
+        tasks.append(task)
+    save_tasks(args.data, tasks)
+    print(f"Imported {len(incoming)} tasks from {args.path}")
     return 0
 
 
