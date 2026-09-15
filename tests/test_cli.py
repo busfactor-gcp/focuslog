@@ -33,3 +33,28 @@ class FocuslogTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WorkflowTests(FocuslogTests):
+    def test_edit_export_import_and_clear(self):
+        self.run_cli("add", "First", "--tag", "work", "--due", "2026-10-01")
+        self.run_cli("add", "Second", "--priority", "high")
+        self.assertEqual(self.run_cli("edit", "1", "--title", "Revised")[0], 0)
+        self.assertIn("Revised", self.run_cli("search", "revised")[1])
+        self.run_cli("done", "1")
+        csv_path = Path(self.temp.name) / "tasks.csv"
+        self.assertEqual(self.run_cli("export", str(csv_path))[0], 0)
+        self.assertIn("Revised", csv_path.read_text())
+        self.assertEqual(self.run_cli("import", str(csv_path))[0], 0)
+        self.assertEqual(len(self.tasks()), 4)
+        self.assertEqual(self.run_cli("clear-completed")[0], 0)
+        self.assertEqual([task["title"] for task in self.tasks()], ["Second", "Second"])
+
+    def test_invalid_import_is_atomic(self):
+        self.run_cli("add", "Existing")
+        csv_path = Path(self.temp.name) / "bad.csv"
+        csv_path.write_text("title,done,priority,tags,due\nBad,maybe,high,,\n")
+        code, _, error = self.run_cli("import", str(csv_path))
+        self.assertEqual(code, 2)
+        self.assertIn("done must be true or false", error)
+        self.assertEqual([task["title"] for task in self.tasks()], ["Existing"])

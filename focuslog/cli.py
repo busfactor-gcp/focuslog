@@ -89,6 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("import", help="import tasks from CSV")
     cmd.add_argument("path", type=Path)
     cmd.set_defaults(handler=import_csv)
+    cmd = sub.add_parser("clear-completed", help="remove all complete tasks")
+    cmd.set_defaults(handler=clear_completed)
     return parser
 
 
@@ -247,6 +249,14 @@ def import_csv(args: argparse.Namespace) -> int:
         tasks.append(task)
     save_tasks(args.data, tasks)
     print(f"Imported {len(incoming)} tasks from {args.path}")
+    return 0
+
+def clear_completed(args: argparse.Namespace) -> int:
+    tasks = load_tasks(args.data)
+    remaining = [task for task in tasks if not task["done"]]
+    removed = len(tasks) - len(remaining)
+    save_tasks(args.data, remaining)
+    print(f"Removed {removed} completed tasks")
     return 0
 
 
