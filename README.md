@@ -1,0 +1,3 @@
+# Focuslog
+
+Project initialization.
