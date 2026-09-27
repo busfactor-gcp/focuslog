@@ -3,7 +3,9 @@ import io
 import json
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 from focuslog.cli import main
 
@@ -36,6 +38,30 @@ if __name__ == "__main__":
 
 
 class WorkflowTests(FocuslogTests):
+    def test_overdue_excludes_today_future_undated_and_completed(self):
+        cases = (
+            ("Yesterday", "2026-09-26"),
+            ("Today", "2026-09-27"),
+            ("Tomorrow", "2026-09-28"),
+            ("Undated", None),
+            ("Completed", "2026-09-26"),
+        )
+        for title, due in cases:
+            args = ("add", title, "--due", due) if due else ("add", title)
+            self.assertEqual(self.run_cli(*args)[0], 0)
+        self.assertEqual(self.run_cli("done", "5")[0], 0)
+
+        with patch("focuslog.cli.date") as clock:
+            clock.today.return_value = date(2026, 9, 27)
+            code, output, error = self.run_cli("list", "--overdue")
+
+        self.assertEqual(code, 0)
+        self.assertEqual(error, "")
+        self.assertIn("Yesterday", output)
+        for excluded in ("Today", "Tomorrow", "Undated", "Completed"):
+            with self.subTest(excluded=excluded):
+                self.assertNotIn(excluded, output)
+
     def test_edit_export_import_and_clear(self):
         self.run_cli("add", "First", "--tag", "work", "--due", "2026-10-01")
         self.run_cli("add", "Second", "--priority", "high")

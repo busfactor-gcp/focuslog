@@ -125,7 +125,7 @@ def list_tasks(args: argparse.Namespace) -> int:
         tasks = [task for task in tasks if task.get("due") and task["due"] < cutoff]
     if args.overdue:
         today = date.today().isoformat()
-        tasks = [task for task in tasks if not task["done"] and task.get("due") and task["due"] <= today]
+        tasks = [task for task in tasks if not task["done"] and task.get("due") and task["due"] < today]
     if args.sort_priority:
         rank = {"high": 0, "normal": 1, "low": 2}
         tasks.sort(key=lambda task: (rank[task.get("priority", "normal")], task["id"]))
